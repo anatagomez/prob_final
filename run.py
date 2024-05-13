@@ -16,10 +16,10 @@ from mingpt.model_multiplier import GPT
 from mingpt.trainer_multiplier import Trainer
 from mingpt.utils import set_seed, setup_logging, CfgNode as CN
 from itertools import permutations
-
+import matplotlib.pyplot as plt
 # -----------------------------------------------------------------------------
 
-def get_config():
+def get_config(): 
     C = CN()
 
     # system
@@ -64,29 +64,56 @@ def batch_end_callback(trainer, model, train_dataset, test_dataset):
 
 # -----------------------------------------------------------------------------
 
+results = []
+
 if __name__ == '__main__':
+    for exp_num in range(100):  
+        config = get_config()
+        setup_logging(config)
 
-    config = get_config()
-    setup_logging(config)
+        # TODO: try different seed for model
+        seed = exp_num
+        set_seed(config.system.init_seed)
 
-    # TODO: try different seed for model
-    set_seed(config.system.init_seed)
 
-    # TODO: try different seed to adjust the data order of train/test-set
-    train_dataset = ChickenRabbitDataset(config.data, split='train', seed=0)
-    test_dataset  = ChickenRabbitDataset(config.data, split='test', seed=0)
+        # TODO: try different seed to adjust the data order of train/test-set
+        train_dataset = ChickenRabbitDataset(config.data, split='train', seed=seed)
+        test_dataset  = ChickenRabbitDataset(config.data, split='test', seed=seed)
 
-    # set the correct vocab size: 10, block size: chickenrabbit -> 10, gcd -> 6
-    config.model.vocab_size = train_dataset.get_vocab_size()
-    config.model.block_size = train_dataset.get_block_size()
-    model = GPT(config.model)
-    trainer = Trainer(config.trainer, model, train_dataset, test_dataset)
-    trainer.set_callback('on_batch_end', batch_end_callback)
-    stop_iteration = trainer.run()
-    if stop_iteration != -1:
-        print(f'The final iteration of this round is {stop_iteration}!')
-    else:
-        print('It cannot reach 0.9 acc within max_iteration steps...')
+        # set the correct vocab size: 10, block size: chickenrabbit -> 10, gcd -> 6
+        config.model.vocab_size = train_dataset.get_vocab_size()
+        config.model.block_size = train_dataset.get_block_size()
+        model = GPT(config.model)
+        trainer = Trainer(config.trainer, model, train_dataset, test_dataset)
+        trainer.set_callback('on_batch_end', batch_end_callback)
+        stop_iteration = trainer.run()
+        if stop_iteration != -1:
+            print(f'The final iteration of this round is {stop_iteration}!')
+            results.append((seed, stop_iteration))
+        else:
+            print('It cannot reach 0.9 acc within max_iteration steps...')
+
+
+    # Calculate mean and standard deviation of iterations
+    iterations = [result[1] for result in results]  # Extract iterations from results
+    mean_iterations = np.mean(iterations)
+    std_dev_iterations = np.std(iterations)
+
+    # Print results
+    print(f"Mean iterations: {mean_iterations:.2f}")
+    print(f"Standard deviation of iterations: {std_dev_iterations:.2f}")
+    print(iterations)
+    print("Seeds and iterations: \n")
+    print(results)
+
+
+    plt.hist(iterations, bins='auto')  # Use 'auto' for automatic bin selection
+    plt.xlabel("Number of training iterations")
+    plt.ylabel("Frequency")
+    plt.title("Distribution of iterations across experiments")
+    plt.grid(True)
+    plt.show()
+        
 
 
     
